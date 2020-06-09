@@ -69,20 +69,18 @@ int main (int argc, char *argv[]) {
     
     // /* Daemon-specific initialization goes here */
 
-	int fd, wd, server_socket, remain_data, sent_bytes=0;
+	int fd, wd, server_socket, remain_data, sent_bytes=0, len, i=0;
 	off_t offset;
-	char buff[BUF_LEN];
-	char curr_dir[PATH_MAX];
-	int len, i = 0;
+	char file_size[BUF_LEN], mask[BUF_LEN], filename[PATH_MAX], buff[BUF_LEN], curr_dir[PATH_MAX];
 	struct sockaddr_in remote_addr;
 	struct stat file_stat;
-	char file_size[256];
 
 	// Set struct to 0s
 	memset(&remote_addr, 0, sizeof(remote_addr));
 	// Get current working directory
-	getcwd(curr_dir, sizeof(curr_dir));
-
+	if (getcwd(curr_dir, sizeof(curr_dir)) == NULL) {
+		fprintf(stderr, "Error finding working directory: %s\n", strerror(errno));
+	}
 	// Constructs addr struct
 	remote_addr.sin_family = AF_INET;
 	inet_pton(AF_INET, SERVER_ADDRESS, &(remote_addr.sin_addr));
@@ -119,24 +117,26 @@ int main (int argc, char *argv[]) {
 	                event->wd, event->mask,
 	                event->cookie, event->len);
 
-	        if (event->len) {
-				char filename[256];
+	        	if (event->len) {
+				memset(filename, 0, strlen(filename));
 				strcpy(filename,event->name);
-	            printf ("name=%s\n", event->name);
+	            	printf ("name=%s\n", event->name);
+				memset(mask, 0, strlen(mask));
 				
-				char mask[256];
 				sprintf(mask, "%u", event->mask);
+				
+				printf("Filename-> %s, mask-> %s\n", filename, mask);
 
-				int status = send(server_socket, &mask, sizeof(mask), 0);
+				int status = send(server_socket, mask, sizeof(mask), 0);
 				if (status < 0) {
 					fprintf(stderr, "Error sending mask: %s\n", strerror(errno));
 				}
 				printf("SENT MASK: %s\n", mask);
-				status = send(server_socket, &filename, sizeof(filename), 0);
+				status = send(server_socket, filename, sizeof(filename), 0);
 				if (status < 0) {
 					fprintf(stderr, "Error sending name: %s\n", strerror(errno));
 				}
-				printf("SENT FILENAME\n");
+				printf("SENT FILENAME %s\n", filename);
 				if(!(event->mask & IN_DELETE)){
 					printf("MASK NOT DELETE\n");
 					int file = open(filename, O_RDONLY);

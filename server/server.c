@@ -109,25 +109,25 @@ int main(int argc, char **argv) {
 		exit(EXIT_FAILURE);
 	}
 	listen(server_socket, 10);
-    printf("listen");
     int clilen = sizeof(client_address);
     client_socket = accept(server_socket, (struct sockaddr *) &client_address, &clilen);
 	while (1) {
-		
+		printf("listen\n");
 		if (client_socket == -1) {
 			fprintf(stderr, "Error creating client socket: %d\n", errno);
 
 			exit(EXIT_FAILURE);
 		}
-        int mask, file_size;
+        int mask=0, file_size=0;
         char file_name[256];
+        memset(file_name, 0, strlen(file_name));
 		// mask
     	recv(client_socket, buffer, BUFSIZ, 0);
-	    printf("Mask received: %s", buffer);
+	    printf("Mask received: %s\n", buffer);
 		mask = atoi(buffer);
         // nombre
-		recv(client_socket, file_name, BUFSIZ, 0);
-        printf("mask : %d, in_delete: %d\n", mask, IN_DELETE);
+		recv(client_socket, file_name, 4096, 0);
+	    printf("Filename received: -%s-\n", file_name);
 
         if (mask == IN_DELETE) {
             printf("borrar");

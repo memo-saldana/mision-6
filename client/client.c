@@ -14,12 +14,12 @@
 #include <errno.h>
 #include <string.h>
 #include <arpa/inet.h>
-#include <unistd.h>
 #include <netinet/in.h>
 #include <limits.h>
 #include <fcntl.h>
 #include <sys/sendfile.h>
 #include <sys/stat.h>
+#include <syslog.h>
 
 #define PORT_NUMBER     8080
 #define SERVER_ADDRESS  "0.0.0.0"
@@ -27,52 +27,52 @@
 #define BUF_LEN (1024 * (EVENT_SIZE + 16))
 
 int main (int argc, char *argv[]) {
+    char curr_dir[] = "/home/ulises/Documents/mision-6/client";
+    // printf("%s\n", curr_dir);
+    /* Our process ID and Session ID */
+    pid_t pid, sid;
     
-    // /* Our process ID and Session ID */
-    // pid_t pid, sid;
-    
-    // /* Fork off the parent process */
-    // pid = fork();
-    // if (pid < 0) {
-    //         exit(EXIT_FAILURE);
-    // }
-    // /* If we got a good PID, then
-    //    we can exit the parent process. */
-    // if (pid > 0) {
-    //         exit(EXIT_SUCCESS);
-    // }
+    /* Fork off the parent process */
+    pid = fork();
+    if (pid < 0) {
+            exit(EXIT_FAILURE);
+    }
+    /* If we got a good PID, then
+       we can exit the parent process. */
+    if (pid > 0) {
+            exit(EXIT_SUCCESS);
+    }
 
-    // /* Change the file mode mask */
-    // umask(0);
+    /* Change the file mode mask */
+    umask(0);
             
-    // /* Open any logs here */        
+    /* Open any logs here */        
             
-    // /* Create a new SID for the child process */
-    // sid = setsid();
-    // if (sid < 0) {
-    //         /* Log the failure */
-    //         exit(EXIT_FAILURE);
-    // }
+     // Create a new SID for the child process 
+    sid = setsid();
+    if (sid < 0) {
+            /* Log the failure */
+            exit(EXIT_FAILURE);
+    }
     
 
     
-    // /* Change the current working directory */
-    // if ((chdir("/")) < 0) {
-    //         /* Log the failure */
+    /* Change the current working directory */
+    // if ((chdir(curr_dir)) < 0) {
+    //          Log the failure 
     //         exit(EXIT_FAILURE);
     // }
     
-    // /* Close out the standard file descriptors */
-    // close(STDIN_FILENO);
-    // close(STDOUT_FILENO);
-    // close(STDERR_FILENO);
+    /* Close out the standard file descriptors */
+    close(STDIN_FILENO);
+    close(STDOUT_FILENO);
+    close(STDERR_FILENO);
     
-    // /* Daemon-specific initialization goes here */
+    /* Daemon-specific initialization goes here */
 
 	int fd, wd, server_socket, remain_data, sent_bytes=0;
 	off_t offset;
 	char buff[BUF_LEN];
-	char curr_dir[PATH_MAX];
 	int len, i = 0;
 	struct sockaddr_in remote_addr;
 	struct stat file_stat;
@@ -80,8 +80,6 @@ int main (int argc, char *argv[]) {
 
 	// Set struct to 0s
 	memset(&remote_addr, 0, sizeof(remote_addr));
-	// Get current working directory
-	getcwd(curr_dir, sizeof(curr_dir));
 
 	// Constructs addr struct
 	remote_addr.sin_family = AF_INET;
@@ -115,14 +113,16 @@ int main (int argc, char *argv[]) {
 		while(i < len) {
 			struct inotify_event *event;
 			event = (struct inotify_event *) &buff[i];
-			printf ("wd=%d mask=%u cookie=%u len=%u\n",
-	                event->wd, event->mask,
-	                event->cookie, event->len);
+			// printf ("wd=%d mask=%u cookie=%u len=%u\n",
+	  //               event->wd, event->mask,
+	  //               event->cookie, event->len);
 
 	        if (event->len) {
-				char filename[256];
+				char filename[256], complete_name[1256];
 				strcpy(filename,event->name);
-	            printf ("name=%s\n", event->name);
+				strcpy(complete_name,curr_dir);
+		        strcat(complete_name,"/");
+		        strcat(complete_name,filename);
 				
 				char mask[256];
 				sprintf(mask, "%u", event->mask);
@@ -131,15 +131,17 @@ int main (int argc, char *argv[]) {
 				if (status < 0) {
 					fprintf(stderr, "Error sending mask: %s\n", strerror(errno));
 				}
-				printf("SENT MASK: %s\n", mask);
+				// printf("SENT MASK: %s\n", mask);
+				sleep(1);
 				status = send(server_socket, &filename, sizeof(filename), 0);
 				if (status < 0) {
 					fprintf(stderr, "Error sending name: %s\n", strerror(errno));
 				}
-				printf("SENT FILENAME\n");
+				// printf("SENT FILENAME\n");
+				sleep(1);
 				if(!(event->mask & IN_DELETE)){
-					printf("MASK NOT DELETE\n");
-					int file = open(filename, O_RDONLY);
+					// printf("MASK NOT DELETE\n");
+					int file = open(complete_name, O_RDONLY);
 					if (file == -1) {
 						fprintf(stderr, "Error opening file: %s", strerror(errno));
 						exit(EXIT_FAILURE);
@@ -150,7 +152,8 @@ int main (int argc, char *argv[]) {
 
 							exit(EXIT_FAILURE);
 					}
-					printf("File Size: %ld bytes\n", file_stat.st_size);
+					// printf("File Size: %ld bytes\n", file_stat.st_size);
+					sleep(1);
 					sprintf(file_size, "%ld", file_stat.st_size);
 
 					/* Sending file size */
@@ -164,10 +167,10 @@ int main (int argc, char *argv[]) {
 					remain_data = file_stat.st_size;
 					// Sending file data
 					while (((sent_bytes = sendfile(server_socket, file, &offset, BUFSIZ)) > 0) && (remain_data > 0)) {
-						fprintf(stdout, "1. Client sent %d bytes from file's data, offset is now : %ld and remaining data = %d\n", sent_bytes, offset, remain_data);
+						// fprintf(stdout, "1. Client sent %d bytes from file's data, offset is now : %ld and remaining data = %d\n", sent_bytes, offset, remain_data);
 						remain_data -= sent_bytes;
-						printf("sending file data");
-						fprintf(stdout, "2. Client sent %d bytes from file's data, offset is now : %ld and remaining data = %d\n", sent_bytes, offset, remain_data);
+						// printf("sending file data");
+						// fprintf(stdout, "2. Client sent %d bytes from file's data, offset is now : %ld and remaining data = %d\n", sent_bytes, offset, remain_data);
 					}
 				}
 				
